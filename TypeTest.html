@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Speed Test</title>
+    <style>
+        :root { 
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; 
+        }
+        
+        body { 
+            margin: 0; 
+            padding: 2rem; 
+            background: #0b0f14; 
+            color: #ff1493; 
+            min-height: 100vh;
+        }
+        
+        #app { 
+            max-width: 800px; 
+            margin: 0 auto; 
+        }
+        
+        h1 { 
+            margin-top: 0; 
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            color: #ff1493;
+        }
+
+        .panel { 
+            background: #121821; 
+            padding: 1.5rem; 
+            border-radius: 14px; 
+            box-shadow: 0 6px 30px rgba(0,0,0,.3); 
+            margin-bottom: 1.5rem;
+        }
+        
+        #targetText { 
+            line-height: 1.9; 
+            padding: 1rem; 
+            background: #0f1420; 
+            border-radius: 10px; 
+            min-height: 100px; 
+            user-select: none; 
+            font-size: 1.1rem;
+            letter-spacing: 0.5px;
+        }
+        
+        #targetText .char { 
+            opacity: .6; 
+            transition: all 0.1s ease;
+        }
+        
+        #targetText .char.correct { 
+            color: #6ce38d; 
+            opacity: 1; 
+        }
+        
+        #targetText .char.incorrect { 
+            color: #ff6b6b; 
+            opacity: 1; 
+            background: rgba(255, 107, 107, 0.1);
+        }
+        
+        #targetText .char.current { 
+            outline: 2px solid #ff1493; 
+            outline-offset: 2px; 
+            border-radius: 4px; 
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { outline-color: #ff1493; }
+            50% { outline-color: #ffd700; }
+        }
+        
+        #targetText .char.space { 
+            background: linear-gradient(transparent 60%, rgba(255,255,255,.06) 60%); 
+        }
+
+        #typingArea { 
+            width: 100%; 
+            margin-top: 1rem; 
+            padding: 1rem; 
+            border-radius: 10px; 
+            border: 2px solid #243040; 
+            background: #0f1420; 
+            color: #e8eef5; 
+            font-size: 1.1rem;
+            font-family: inherit;
+            resize: none;
+            transition: border-color 0.2s ease;
+        }
+        
+        #typingArea:focus { 
+            outline: none;
+            border-color: #ff1493; 
+            box-shadow: 0 0 0 2px rgba(255, 20, 147, 0.2);
+        }
+
+        .controls { 
+            margin-top: 1rem; 
+            display: flex; 
+            gap: 0.75rem; 
+            justify-content: center;
+        }
+        
+        button { 
+            padding: 0.75rem 1.5rem; 
+            border: none; 
+            border-radius: 10px; 
+            background: #2a3344; 
+            color: #ffd700; 
+            cursor: pointer; 
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        button:hover { 
+            background: #3a4455;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .stats { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); 
+            gap: 1rem; 
+            margin: 1.5rem 0; 
+        }
+        
+        .stats div { 
+            background: #121821; 
+            padding: 1.25rem; 
+            border-radius: 10px; 
+            text-align: center; 
+            border: 1px solid #243040;
+            transition: transform 0.2s ease;
+        }
+
+        .stats div:hover {
+            transform: translateY(-2px);
+        }
+        
+        .stats strong {
+            display: block;
+            font-size: 0.85rem;
+            opacity: 0.8;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stats span {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .hint { 
+            opacity: .7; 
+            text-align: center;
+            font-style: italic;
+            margin-top: 1rem;
+        }
+
+        .completion-message {
+            background: linear-gradient(135deg, #ff1493, #ffd700);
+            color: black;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 1rem;
+            font-weight: bold;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .difficulty-selector {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .difficulty-selector label {
+            margin-right: 1rem;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .difficulty-selector select {
+            background: #2a3344;
+            color: #e8eef5;
+            border: 1px solid #243040;
+            border-radius: 6px;
+            padding: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .last-attempt {
+            background: #121821;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 1rem;
+            border: 1px solid #243040;
+        }
+
+        .last-attempt.highlight {
+            border-color: #ff1493;
+            box-shadow: 0 0 10px rgba(255, 20, 147, 0.3);
+        }
+
+        .last-attempt strong {
+            color: #ffd700;
+        }
+    </style>
+</head>
+<body>
+    <main id="app">
+        <h1>Typing Speed Test</h1>
+
+        <div class="difficulty-selector">
+            <label for="difficulty">Difficulty: </label>
+            <select id="difficulty">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+        </div>
+
+        <div id="lastAttempt" class="last-attempt" style="display: none;">
+            <strong>Last Attempt:</strong> <span id="lastWpm">0</span> WPM
+        </div>
+
+        <section class="panel">
+            <div id="targetText" aria-live="polite"></div>
+
+            <textarea id="typingArea"
+                      placeholder="Start typing here..."
+                      rows="5"
+                      spellcheck="false"
+                      autocomplete="off"
+                      autocorrect="off"
+                      autocapitalize="off"></textarea>
+
+            <div class="controls">
+                <button id="newTest">New Test</button>
+                <button id="resetTest">Reset</button>
+                <button id="finishTest">Finish Test</button>
+            </div>
+        </section>
+
+        <section class="stats">
+            <div><strong>Time</strong> <span id="timeEl">0.0s</span></div>
+            <div><strong>WPM</strong> <span id="wpmEl">0</span></div>
+            <div><strong>Accuracy</strong> <span id="accuracyEl">100%</span></div>
+            <div><strong>Mistakes</strong> <span id="mistakesEl">0</span></div>
+        </section>
+
+        <div id="completionMessage" style="display: none;"></div>
+    </main>
+
+    <script>
+        const sentences = {
+            easy: [
+                "The cat sat on the mat and looked at the bird in the tree. She walked slowly to the window and watched the bird fly away. The warm sun made her feel sleepy and content.",
+                "He went to the store to buy some bread and milk for breakfast. The morning was fresh and cool with a gentle breeze. Children were playing happily in the nearby park.",
+                "It was a sunny day and the children played in the park together. They ran around the playground and laughed with pure joy. The parents watched them from wooden benches nearby.",
+                "She read a good book while sitting by the warm fireplace. The story was about a brave knight and a magical kingdom. Outside, the winter snow fell gently on the ground.",
+                "The dog ran fast across the green grass in the yard. His tail wagged with excitement as he chased the ball. The family smiled as they watched him play happily."
+            ],
+            medium: [
+                "The quick brown fox jumps over the lazy sleeping dog near the fence. This sentence contains most letters of the alphabet for typing practice. Professional typists often use this phrase to test their speed and accuracy.",
+                "Technology has revolutionized the way we communicate and work together. Digital devices connect people across vast distances instantly and efficiently. However, we must balance screen time with real human interaction.",
+                "Learning to type quickly requires consistent practice and proper finger positioning. Start with accuracy before focusing on speed improvement techniques. Muscle memory develops gradually through repetition and dedication to the craft.",
+                "The ocean waves crashed against the rocky shore with tremendous force. Seabirds circled overhead searching for fish in the churning waters. The lighthouse beam swept across the horizon every thirty seconds.",
+                "Mountain climbing requires physical strength, mental preparation, and specialized equipment. Experienced climbers know that weather conditions can change rapidly at high altitudes. Safety should always be the primary concern during any expedition."
+            ],
+            hard: [
+                "Sophisticated algorithms require meticulous implementation and thorough debugging procedures throughout development. Quantum mechanics demonstrates the fundamental probabilistic nature of subatomic particles in modern physics. The intersection of computational theory and practical application continues to drive innovation.",
+                "Philosophical discourse necessitates rigorous examination of epistemological foundations and methodological approaches. Contemporary philosophers grapple with questions about consciousness, reality, and the nature of knowledge itself. These debates have profound implications for artificial intelligence and cognitive science.",
+                "Anthropological studies reveal intricate patterns of cultural evolution and societal adaptation mechanisms. Researchers investigate how human societies develop unique customs, languages, and belief systems. Cross-cultural analysis provides insights into universal aspects of human behavior and cognition.",
+                "Biotechnological innovations revolutionize pharmaceutical research and therapeutic intervention strategies in medicine. CRISPR gene editing, immunotherapy, and personalized medicine represent paradigm shifts in healthcare. Ethical considerations surrounding genetic manipulation require careful deliberation and regulatory oversight.",
+                "Cryptocurrency blockchain technology demonstrates decentralized consensus mechanisms and cryptographic security protocols. Smart contracts enable autonomous execution of predetermined conditions without intermediary oversight. The implications for traditional financial institutions and monetary policy remain subjects of intense debate."
+            ]
+        };
+
+        const elTarget = document.getElementById("targetText");
+        const elArea = document.getElementById("typingArea");
+        const elNew = document.getElementById("newTest");
+        const elReset = document.getElementById("resetTest");
+        const elFinish = document.getElementById("finishTest");
+        const elTime = document.getElementById("timeEl");
+        const elWpm = document.getElementById("wpmEl");
+        const elAccuracy = document.getElementById("accuracyEl");
+        const elMistakes = document.getElementById("mistakesEl");
+        const elDifficulty = document.getElementById("difficulty");
+        const elCompletion = document.getElementById("completionMessage");
+        const elLastAttempt = document.getElementById("lastAttempt");
+        const elLastWpm = document.getElementById("lastWpm");
+
+        let target = "";
+        let state = "idle"; // "idle" | "running" | "finished"
+        let startTs = 0;
+        let timerId = null;
+        let typedChars = 0;
+        let correctChars = 0;
+        let mistakes = 0;
+
+        // Helper Functions
+        function pickSentence() {
+            const difficulty = elDifficulty.value;
+            const sentenceArray = sentences[difficulty];
+            const i = Math.floor(Math.random() * sentenceArray.length);
+            return sentenceArray[i];
+        }
+
+        function renderTarget(text) {
+            elTarget.innerHTML = "";
+            for (let i = 0; i < text.length; i++) {
+                const span = document.createElement("span");
+                span.textContent = text[i];
+                span.className = "char" + (text[i] === " " ? " space" : "");
+                elTarget.appendChild(span);
+            }
+            setCurrentPointer(0);
+        }
+
+        function setCurrentPointer(index) {
+            for (const node of elTarget.children) {
+                node.classList.remove("current");
+            }
+            const node = elTarget.children[index];
+            if (node) node.classList.add("current");
+        }
+
+        function resetStats() {
+            state = "idle";
+            startTs = 0;
+            typedChars = 0;
+            correctChars = 0;
+            mistakes = 0;
+            elTime.textContent = "0.0s";
+            elWpm.textContent = "0";
+            elAccuracy.textContent = "100%";
+            elMistakes.textContent = "0";
+            elCompletion.style.display = "none";
+        }
+
+        function newTest() {
+            target = pickSentence();
+            renderTarget(target);
+            elArea.value = "";
+            resetStats();
+            stopTimer();
+            elArea.focus();
+        }
+
+        function computeWPM(charsTyped, elapsedMS) {
+            const minutes = elapsedMS / 60000;
+            const words = charsTyped / 5;
+            return minutes > 0 ? Math.round(words / minutes) : 0;
+        }
+
+        function updateStats() {
+            if (state === "idle") return;
+            const elapsed = performance.now() - startTs;
+            elTime.textContent = (elapsed / 1000).toFixed(1) + "s";
+            elWpm.textContent = String(computeWPM(correctChars, elapsed)); // Use correct chars for WPM
+            const accuracy = typedChars > 0 ? Math.round((correctChars / typedChars) * 100) : 100;
+            elAccuracy.textContent = `${accuracy}%`;
+            elMistakes.textContent = String(mistakes);
+        }
+
+        function startTimer() {
+            if (timerId !== null) return;
+            startTs = performance.now();
+            timerId = setInterval(updateStats, 100);
+        }
+
+        function stopTimer() {
+            if (timerId !== null) {
+                clearInterval(timerId);
+                timerId = null;
+            }
+        }
+
+        function showCompletionMessage() {
+            const wpm = elWpm.textContent;
+            const accuracy = elAccuracy.textContent;
+            const time = elTime.textContent;
+            
+            let message = `🎉 Test Complete! `;
+            if (parseInt(wpm) >= 60) {
+                message += `Excellent speed: ${wpm} WPM!`;
+            } else if (parseInt(wpm) >= 40) {
+                message += `Good speed: ${wpm} WPM!`;
+            } else {
+                message += `Speed: ${wpm} WPM - Keep practicing!`;
+            }
+            message += ` Accuracy: ${accuracy} | Time: ${time}`;
+            
+            elCompletion.textContent = message;
+            elCompletion.className = "completion-message";
+            elCompletion.style.display = "block";
+        }
+
+        function finishTest() {
+            if (state !== "running") return;
+            
+            state = "finished";
+            setCurrentPointer(target.length);
+            updateStats();
+            stopTimer();
+            
+            // Save last attempt WPM
+            const currentWpm = parseInt(elWpm.textContent);
+            elLastWpm.textContent = String(currentWpm);
+            elLastAttempt.style.display = "block";
+            elLastAttempt.classList.add("highlight");
+            setTimeout(() => elLastAttempt.classList.remove("highlight"), 2000);
+            
+            showCompletionMessage();
+        }
+
+        function handleTyping() {
+            const input = elArea.value;
+            
+            if (state === "idle" && input.length > 0) {
+                state = "running";
+                startTimer();
+            }
+
+            typedChars = input.length;
+            correctChars = 0;
+            mistakes = 0;
+
+            const len = Math.min(input.length, target.length);
+
+            // Update character styling
+            for (let i = 0; i < target.length; i++) {
+                const span = elTarget.children[i];
+                span.classList.remove("correct", "incorrect");
+                
+                if (i < len) {
+                    if (input[i] === target[i]) {
+                        span.classList.add("correct");
+                        correctChars++;
+                    } else {
+                        span.classList.add("incorrect");
+                        mistakes++;
+                    }
+                }
+            }
+
+            setCurrentPointer(len);
+
+            // Check if test is complete
+            if (len === target.length && typedChars === target.length) {
+                finishTest();
+            } else {
+                updateStats();
+            }
+        }
+
+        function handleKeyDown(e) {
+            // Prevent going beyond the target text
+            if (elArea.value.length >= target.length && e.key.length === 1) {
+                e.preventDefault();
+            }
+        }
+
+        // Event Listeners
+        elArea.addEventListener("input", handleTyping);
+        elArea.addEventListener("keydown", handleKeyDown);
+        elNew.addEventListener("click", newTest);
+        elReset.addEventListener("click", () => {
+            elArea.value = "";
+            renderTarget(target);
+            resetStats();
+            stopTimer();
+            elArea.focus();
+        });
+        elFinish.addEventListener("click", finishTest);
+
+        elDifficulty.addEventListener("change", newTest);
+
+        // Keyboard shortcuts
+        document.addEventListener("keydown", (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    newTest();
+                } else if (e.key === "r") {
+                    e.preventDefault();
+                    elArea.value = "";
+                    renderTarget(target);
+                    resetStats();
+                    stopTimer();
+                    elArea.focus();
+                }
+            }
+        });
+
+        // Initialize the test when page loads
+        newTest();
+    </script>
+</body>
+</html>
