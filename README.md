@@ -1,6 +1,8 @@
 # Typing-Test
 
-Typing Speed Test with multiple difficulty levels:
+Typing Speed Test with:
+
+-- Multiple difficulty levels
 
 -- Real Time Feedback 
 
