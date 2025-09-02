@@ -401,10 +401,10 @@
             const accuracy = elAccuracy.textContent;
             const time = elTime.textContent;
             
-            let message = `🎉 Test Complete! `;
-            if (parseInt(wpm) >= 60) {
+            let message = ` Test Complete! `;
+            if (parseInt(wpm) >= 80) {
                 message += `Excellent speed: ${wpm} WPM!`;
-            } else if (parseInt(wpm) >= 40) {
+            } else if (parseInt(wpm) >= 60) {
                 message += `Good speed: ${wpm} WPM!`;
             } else {
                 message += `Speed: ${wpm} WPM - Keep practicing!`;
