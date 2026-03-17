@@ -7,10 +7,10 @@ Typing Speed Test with:
 -- Real Time Feedback 
 
 
--- Live Statistics 
+-- Live Statistics including graph 
 
 
--- Compare with Previous attempt
+-- Compare with Previous and Best attempt 
 
 
 -- Keyboard Shortcuts
@@ -23,4 +23,4 @@ Typing Speed Test with:
 
 ## Screenshot
 
-<img width="1022" height="789" alt="Screenshot 2025-09-07 at 21 48 29" src="https://github.com/user-attachments/assets/04a69f47-e605-4b6a-aada-84ba94564b53" />
+<img width="699" height="790" alt="Screenshot 2026-03-17 at 22 05 05" src="https://github.com/user-attachments/assets/3d7f75fa-87fa-4698-8a03-c72bac0a7650" />
