@@ -76,10 +76,9 @@
             0%, 100% { outline-color: #ff1493; }
             50% { outline-color: #ffd700; }
         }
-        
-        #targetText .char.space { 
-            background: linear-gradient(transparent 60%, rgba(255,255,255,.06) 60%); 
-        }
+
+        /* CHANGE 1: gradient removed */
+        #targetText .char.space {}
 
         #typingArea { 
             width: 100%; 
@@ -93,6 +92,7 @@
             font-family: inherit;
             resize: none;
             transition: border-color 0.2s ease;
+            box-sizing: border-box;
         }
         
         #typingArea:focus { 
@@ -164,15 +164,8 @@
             font-weight: bold;
         }
 
-        .hint { 
-            opacity: .7; 
-            text-align: center;
-            font-style: italic;
-            margin-top: 1rem;
-        }
-
         .completion-message {
-            background: linear-gradient(135deg, #ff1493, #ffd700);
+            background: #ff1493;
             color: black;
             padding: 1rem;
             border-radius: 10px;
@@ -207,6 +200,7 @@
             font-size: 0.9rem;
         }
 
+        /* CHANGE 2: last-attempt panel shows last + best */
         .last-attempt {
             background: #121821;
             padding: 1rem;
@@ -224,6 +218,44 @@
         .last-attempt strong {
             color: #ffd700;
         }
+
+        .best-badge {
+            display: inline-block;
+            margin-left: 0.5rem;
+            font-size: 0.75rem;
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid #ffd700;
+            color: #ffd700;
+            border-radius: 20px;
+            padding: 0.1rem 0.5rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        /* CHANGE 3: WPM chart */
+        #wpmChart {
+            display: none;
+            background: #121821;
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin-top: 1rem;
+            border: 1px solid #243040;
+            animation: fadeIn 0.5s ease;
+        }
+
+        #wpmChart h3 {
+            margin: 0 0 1rem;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #ffd700;
+            opacity: 0.8;
+        }
+
+        #wpmCanvas {
+            display: block;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -239,8 +271,12 @@
             </select>
         </div>
 
+        <!-- CHANGE 2: shows both last and best WPM -->
         <div id="lastAttempt" class="last-attempt" style="display: none;">
-            <strong>Last Attempt:</strong> <span id="lastWpm">0</span> WPM
+            <strong>Last:</strong> <span id="lastWpm">0</span> WPM
+            &nbsp;&nbsp;
+            <strong>Best:</strong> <span id="bestWpm">0</span> WPM
+            <span id="bestBadge" class="best-badge" style="display:none;">New best!!!</span>
         </div>
 
         <section class="panel">
@@ -269,6 +305,12 @@
         </section>
 
         <div id="completionMessage" style="display: none;"></div>
+
+        <!-- CHANGE 3: WPM over time chart, shown on completion -->
+        <div id="wpmChart">
+            <h3>WPM over time</h3>
+            <canvas id="wpmCanvas" height="100"></canvas>
+        </div>
     </main>
 
     <script>
@@ -296,19 +338,23 @@
             ]
         };
 
-        const elTarget = document.getElementById("targetText");
-        const elArea = document.getElementById("typingArea");
-        const elNew = document.getElementById("newTest");
-        const elReset = document.getElementById("resetTest");
-        const elFinish = document.getElementById("finishTest");
-        const elTime = document.getElementById("timeEl");
-        const elWpm = document.getElementById("wpmEl");
-        const elAccuracy = document.getElementById("accuracyEl");
-        const elMistakes = document.getElementById("mistakesEl");
-        const elDifficulty = document.getElementById("difficulty");
-        const elCompletion = document.getElementById("completionMessage");
+        const elTarget      = document.getElementById("targetText");
+        const elArea        = document.getElementById("typingArea");
+        const elNew         = document.getElementById("newTest");
+        const elReset       = document.getElementById("resetTest");
+        const elFinish      = document.getElementById("finishTest");
+        const elTime        = document.getElementById("timeEl");
+        const elWpm         = document.getElementById("wpmEl");
+        const elAccuracy    = document.getElementById("accuracyEl");
+        const elMistakes    = document.getElementById("mistakesEl");
+        const elDifficulty  = document.getElementById("difficulty");
+        const elCompletion  = document.getElementById("completionMessage");
         const elLastAttempt = document.getElementById("lastAttempt");
-        const elLastWpm = document.getElementById("lastWpm");
+        const elLastWpm     = document.getElementById("lastWpm");
+        const elBestWpm     = document.getElementById("bestWpm");   // CHANGE 2
+        const elBestBadge   = document.getElementById("bestBadge"); // CHANGE 2
+        const elWpmChart    = document.getElementById("wpmChart");  // CHANGE 3
+        const elWpmCanvas   = document.getElementById("wpmCanvas"); // CHANGE 3
 
         let target = "";
         let state = "idle"; // "idle" | "running" | "finished"
@@ -317,13 +363,13 @@
         let typedChars = 0;
         let correctChars = 0;
         let mistakes = 0;
+        let bestWpm = 0;        // CHANGE 2: tracks best across attempts
+        let wpmHistory = [];    // CHANGE 3: per-second WPM snapshots
+        let historyTimerId = null;
 
-        // Helper Functions
         function pickSentence() {
-            const difficulty = elDifficulty.value;
-            const sentenceArray = sentences[difficulty];
-            const i = Math.floor(Math.random() * sentenceArray.length);
-            return sentenceArray[i];
+            const arr = sentences[elDifficulty.value];
+            return arr[Math.floor(Math.random() * arr.length)];
         }
 
         function renderTarget(text) {
@@ -338,9 +384,7 @@
         }
 
         function setCurrentPointer(index) {
-            for (const node of elTarget.children) {
-                node.classList.remove("current");
-            }
+            for (const node of elTarget.children) node.classList.remove("current");
             const node = elTarget.children[index];
             if (node) node.classList.add("current");
         }
@@ -351,11 +395,13 @@
             typedChars = 0;
             correctChars = 0;
             mistakes = 0;
+            wpmHistory = [];
             elTime.textContent = "0.0s";
             elWpm.textContent = "0";
             elAccuracy.textContent = "100%";
             elMistakes.textContent = "0";
             elCompletion.style.display = "none";
+            elWpmChart.style.display = "none";
         }
 
         function newTest() {
@@ -367,19 +413,18 @@
             elArea.focus();
         }
 
-        function computeWPM(charsTyped, elapsedMS) {
-            const minutes = elapsedMS / 60000;
-            const words = charsTyped / 5;
-            return minutes > 0 ? Math.round(words / minutes) : 0;
+        function computeWPM(chars, ms) {
+            const mins = ms / 60000;
+            return mins > 0 ? Math.round((chars / 5) / mins) : 0;
         }
 
         function updateStats() {
             if (state === "idle") return;
             const elapsed = performance.now() - startTs;
             elTime.textContent = (elapsed / 1000).toFixed(1) + "s";
-            elWpm.textContent = String(computeWPM(correctChars, elapsed)); // Use correct chars for WPM
-            const accuracy = typedChars > 0 ? Math.round((correctChars / typedChars) * 100) : 100;
-            elAccuracy.textContent = `${accuracy}%`;
+            elWpm.textContent = String(computeWPM(correctChars, elapsed));
+            const acc = typedChars > 0 ? Math.round((correctChars / typedChars) * 100) : 100;
+            elAccuracy.textContent = `${acc}%`;
             elMistakes.textContent = String(mistakes);
         }
 
@@ -387,133 +432,188 @@
             if (timerId !== null) return;
             startTs = performance.now();
             timerId = setInterval(updateStats, 100);
+            // CHANGE 3: snapshot WPM every second
+            historyTimerId = setInterval(() => {
+                if (state === "running") {
+                    wpmHistory.push(computeWPM(correctChars, performance.now() - startTs));
+                }
+            }, 1000);
         }
 
         function stopTimer() {
-            if (timerId !== null) {
-                clearInterval(timerId);
-                timerId = null;
-            }
+            if (timerId !== null) { clearInterval(timerId); timerId = null; }
+            if (historyTimerId !== null) { clearInterval(historyTimerId); historyTimerId = null; }
         }
 
         function showCompletionMessage() {
             const wpm = elWpm.textContent;
-            const accuracy = elAccuracy.textContent;
+            const acc = elAccuracy.textContent;
             const time = elTime.textContent;
-            
-            let message = ` Test Complete! `;
-            if (parseInt(wpm) >= 80) {
-                message += `Excellent speed: ${wpm} WPM!`;
-            } else if (parseInt(wpm) >= 60) {
-                message += `Good speed: ${wpm} WPM!`;
-            } else {
-                message += `Speed: ${wpm} WPM - Keep practicing!`;
-            }
-            message += ` Accuracy: ${accuracy} | Time: ${time}`;
-            
-            elCompletion.textContent = message;
+            let msg = "✓ Test Complete!  ";
+            msg += parseInt(wpm) >= 60 ? `Excellent speed: ${wpm} WPM!`
+                 : parseInt(wpm) >= 40 ? `Good speed: ${wpm} WPM!`
+                 : `Speed: ${wpm} WPM — keep practicing!`;
+            msg += `  Accuracy: ${acc} | Time: ${time}`;
+            elCompletion.textContent = msg;
             elCompletion.className = "completion-message";
             elCompletion.style.display = "block";
         }
 
+        // CHANGE 3: draw the WPM sparkline using Canvas API
+        function drawWpmChart(data) {
+            if (data.length < 2) return;
+            elWpmChart.style.display = "block";
+
+            const canvas = elWpmCanvas;
+            const dpr = window.devicePixelRatio || 1;
+            const cssW = canvas.parentElement.clientWidth - 40; // account for padding
+            const cssH = 100;
+            canvas.width  = cssW * dpr;
+            canvas.height = cssH * dpr;
+            canvas.style.width  = cssW + "px";
+            canvas.style.height = cssH + "px";
+
+            const ctx = canvas.getContext("2d");
+            ctx.scale(dpr, dpr);
+
+            const pad = { top: 8, right: 8, bottom: 22, left: 34 };
+            const W = cssW - pad.left - pad.right;
+            const H = cssH - pad.top - pad.bottom;
+
+            const maxV = Math.max(...data, 10);
+            const minV = Math.max(0, Math.min(...data) - 5);
+            const xStep = W / (data.length - 1);
+            const toY = v => pad.top + H - ((v - minV) / (maxV - minV || 1)) * H;
+            const toX = i => pad.left + i * xStep;
+
+            // Subtle grid
+            ctx.strokeStyle = "rgba(255,255,255,0.05)";
+            ctx.lineWidth = 1;
+            [0, 0.5, 1].forEach(t => {
+                const y = pad.top + t * H;
+                ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + W, y); ctx.stroke();
+            });
+
+            // Y labels
+            ctx.fillStyle = "rgba(255,255,255,0.35)";
+            ctx.font = "10px ui-sans-serif, system-ui, sans-serif";
+            ctx.textAlign = "right";
+            [[minV, 1], [Math.round((minV + maxV) / 2), 0.5], [maxV, 0]].forEach(([v, t]) => {
+                ctx.fillText(v, pad.left - 5, pad.top + t * H + 4);
+            });
+
+            // X labels (seconds)
+            ctx.textAlign = "center";
+            const every = Math.ceil(data.length / 6);
+            data.forEach((_, i) => {
+                if (i % every === 0 || i === data.length - 1)
+                    ctx.fillText((i + 1) + "s", toX(i), cssH - 4);
+            });
+
+            // Fill under curve
+            const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + H);
+            grad.addColorStop(0, "rgba(255,20,147,0.25)");
+            grad.addColorStop(1, "rgba(255,20,147,0)");
+            ctx.beginPath();
+            data.forEach((v, i) => i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v)));
+            ctx.lineTo(toX(data.length - 1), pad.top + H);
+            ctx.lineTo(toX(0), pad.top + H);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Line
+            ctx.beginPath();
+            ctx.strokeStyle = "#ff1493";
+            ctx.lineWidth = 2;
+            ctx.lineJoin = "round";
+            data.forEach((v, i) => i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v)));
+            ctx.stroke();
+
+            // Dots
+            data.forEach((v, i) => {
+                ctx.beginPath();
+                ctx.arc(toX(i), toY(v), 3, 0, Math.PI * 2);
+                ctx.fillStyle = "#ff1493";
+                ctx.fill();
+                ctx.strokeStyle = "#0b0f14";
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            });
+        }
+
         function finishTest() {
             if (state !== "running") return;
-            
             state = "finished";
             setCurrentPointer(target.length);
             updateStats();
             stopTimer();
-            
-            // Save last attempt WPM
+
             const currentWpm = parseInt(elWpm.textContent);
+
+            // CHANGE 2: compare and store best
+            const isNewBest = currentWpm > bestWpm;
+            if (isNewBest) bestWpm = currentWpm;
             elLastWpm.textContent = String(currentWpm);
+            elBestWpm.textContent = String(bestWpm);
+            elBestBadge.style.display = isNewBest ? "inline-block" : "none";
             elLastAttempt.style.display = "block";
             elLastAttempt.classList.add("highlight");
             setTimeout(() => elLastAttempt.classList.remove("highlight"), 2000);
-            
+
             showCompletionMessage();
+
+            // CHANGE 3: add final point then draw
+            wpmHistory.push(computeWPM(correctChars, performance.now() - startTs));
+            drawWpmChart(wpmHistory);
         }
 
         function handleTyping() {
             const input = elArea.value;
-            
-            if (state === "idle" && input.length > 0) {
-                state = "running";
-                startTimer();
-            }
+            if (state === "idle" && input.length > 0) { state = "running"; startTimer(); }
 
             typedChars = input.length;
             correctChars = 0;
             mistakes = 0;
-
             const len = Math.min(input.length, target.length);
 
-            // Update character styling
             for (let i = 0; i < target.length; i++) {
                 const span = elTarget.children[i];
                 span.classList.remove("correct", "incorrect");
-                
                 if (i < len) {
-                    if (input[i] === target[i]) {
-                        span.classList.add("correct");
-                        correctChars++;
-                    } else {
-                        span.classList.add("incorrect");
-                        mistakes++;
-                    }
+                    if (input[i] === target[i]) { span.classList.add("correct"); correctChars++; }
+                    else { span.classList.add("incorrect"); mistakes++; }
                 }
             }
 
             setCurrentPointer(len);
-
-            // Check if test is complete
-            if (len === target.length && typedChars === target.length) {
-                finishTest();
-            } else {
-                updateStats();
-            }
+            if (len === target.length && typedChars === target.length) finishTest();
+            else updateStats();
         }
 
         function handleKeyDown(e) {
-            // Prevent going beyond the target text
-            if (elArea.value.length >= target.length && e.key.length === 1) {
-                e.preventDefault();
-            }
+            if (elArea.value.length >= target.length && e.key.length === 1) e.preventDefault();
         }
 
-        // Event Listeners
         elArea.addEventListener("input", handleTyping);
         elArea.addEventListener("keydown", handleKeyDown);
         elNew.addEventListener("click", newTest);
         elReset.addEventListener("click", () => {
-            elArea.value = "";
-            renderTarget(target);
-            resetStats();
-            stopTimer();
-            elArea.focus();
+            elArea.value = ""; renderTarget(target); resetStats(); stopTimer(); elArea.focus();
         });
         elFinish.addEventListener("click", finishTest);
-
         elDifficulty.addEventListener("change", newTest);
 
-        // Keyboard shortcuts
         document.addEventListener("keydown", (e) => {
             if (e.ctrlKey || e.metaKey) {
-                if (e.key === "Enter") {
+                if (e.key === "Enter") { e.preventDefault(); newTest(); }
+                else if (e.key === "r") {
                     e.preventDefault();
-                    newTest();
-                } else if (e.key === "r") {
-                    e.preventDefault();
-                    elArea.value = "";
-                    renderTarget(target);
-                    resetStats();
-                    stopTimer();
-                    elArea.focus();
+                    elArea.value = ""; renderTarget(target); resetStats(); stopTimer(); elArea.focus();
                 }
             }
         });
 
-        // Initialize the test when page loads
         newTest();
     </script>
 </body>
